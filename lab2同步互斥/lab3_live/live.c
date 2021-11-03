@@ -6,34 +6,41 @@
 #define CHAIRS 5
 
 typedef sem_t semaphore;
+typedef struct target
+{
+    char movie[32];   //ç”µå½±åç§°
+    int movieID;      //ç”µå½±ID
+    int movie_time;   //ç”µå½±æ—¶é•¿
+    int viewing_time; //é¡¾å®¢é¢„æœŸè§‚å½±æ—¶é—´
+} Target;
 
-// µÈ´ıÈËÊı
+// ç­‰å¾…äººæ•°
 int waiting = 0;
 
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;         // Ìá¹©»º³åÇø·ÃÎÊµÄ»¥³âÒªÇó
-pthread_mutex_t waiting_mutex = PTHREAD_MUTEX_INITIALIZER; // Ìá¹©µÈ´ıÈËÊı·ÃÎÊµÄ»¥³âÒªÇó
-semaphore full;                                            // »º³åÇø±»Ìî³äµÄÊıÁ¿
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;         // æä¾›ç¼“å†²åŒºè®¿é—®çš„äº’æ–¥è¦æ±‚
+pthread_mutex_t waiting_mutex = PTHREAD_MUTEX_INITIALIZER; // æä¾›ç­‰å¾…äººæ•°è®¿é—®çš„äº’æ–¥è¦æ±‚
+semaphore full;                                            // ç¼“å†²åŒºè¢«å¡«å……çš„æ•°é‡
 
-// »º³åÇø ×Ü¹²ÓĞCHAIRS°ÑÒÎ×Ó
-int chairs[CHAIRS];    //»º³åÇøÊı×é
-int nextCustomers = 0; //Ö¸ÏòÏÂÒ»Î»µÈ´ıµÄ¹Ë¿Í
-int nextChair = 0;     //Ö¸ÏòÏÂÒ»¸ö¿ÕÒÎ×Ó
+// ç¼“å†²åŒº æ€»å…±æœ‰CHAIRSæŠŠæ¤…å­
+int chairs[CHAIRS];    //ç¼“å†²åŒºæ•°ç»„
+int nextCustomers = 0; //æŒ‡å‘ä¸‹ä¸€ä½ç­‰å¾…çš„é¡¾å®¢
+int nextChair = 0;     //æŒ‡å‘ä¸‹ä¸€ä¸ªç©ºæ¤…å­
 
 void *barber(void)
 {
     while (1)
     {
         int id;
-        sem_wait(&full);            //µÈ´ı¿ÍÈËÀ´
-        pthread_mutex_lock(&mutex); //ÓĞ¿ÍÈË£¬¶ÁÈ¡¿ÍÈËid ½øĞĞÀí·¢
+        sem_wait(&full);            //ç­‰å¾…å®¢äººæ¥
+        pthread_mutex_lock(&mutex); //æœ‰å®¢äººï¼Œè¯»å–å®¢äººid è¿›è¡Œç†å‘
         id = chairs[nextCustomers];
         nextCustomers = (nextCustomers + 1) % CHAIRS;
         pthread_mutex_unlock(&mutex);
 
-        printf("barberÕıÔÚ¸øµÚ%dÎª¹Ë¿ÍÀí·¢\n", id);
+        printf("barberæ­£åœ¨ç»™ç¬¬%dä¸ºé¡¾å®¢ç†å‘\n", id);
         sleep(2);
 
-        //ËÍ×ß¿ÍÈË
+        //é€èµ°å®¢äºº
         pthread_mutex_lock(&waiting_mutex);
         waiting -= 1;
         pthread_mutex_unlock(&waiting_mutex);
@@ -47,13 +54,13 @@ void *customer(void *num)
     pthread_mutex_lock(&waiting_mutex);
     if (waiting == 0)
     {
-        printf("       ####½ĞĞÑÀÏ°å\n");
+        printf("       ####å«é†’è€æ¿\n");
     }
     if (waiting < CHAIRS)
     {
         waiting += 1;
-        //¹Ë¿Í×øÉÏÒÎ×ÓµÈ´ı±»½Ğ
-        printf("µÚ%dÎ»¹Ë¿Í\t×øÔÚµÚ%d°ÑÒÎ×ÓÉÏ\n", id, nextChair);
+        //é¡¾å®¢åä¸Šæ¤…å­ç­‰å¾…è¢«å«
+        printf("ç¬¬%dä½é¡¾å®¢\tååœ¨ç¬¬%dæŠŠæ¤…å­ä¸Š\n", id, nextChair);
 
         pthread_mutex_lock(&mutex);
         chairs[nextChair] = id;
@@ -62,7 +69,7 @@ void *customer(void *num)
     }
     else
     {
-        printf("-----µÚ%dÎ»¹Ë¿ÍÃ»ÓĞÎ»ÖÃÀë¿ªÁË\n", id);
+        printf("-----ç¬¬%dä½é¡¾å®¢æ²¡æœ‰ä½ç½®ç¦»å¼€äº†\n", id);
     }
 
     pthread_mutex_unlock(&waiting_mutex);
