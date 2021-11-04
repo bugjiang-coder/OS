@@ -8,11 +8,18 @@
 typedef sem_t semaphore;
 typedef struct target
 {
-    char movie[32];   //电影名称
-    int movieID;      //电影ID
-    int movie_time;   //电影时长
-    int viewing_time; //顾客预期观影时间
+    char documentary[32]; //纪录片名称
+    int documentaryID;    //纪录片ID
+    int documentary_time; //纪录片时长
+    int viewing_time;     //用户预期观影时间
 } Target;
+
+typedef struct element
+{
+    semaphore mutex = 1; 	 //用于确保该纪录片的viewer_count更新时的互斥
+    int viewer_count = 0;	 //正在观看的人数 初始化为0
+    Target Documentary;		//要观看的纪录片
+} Element;
 
 // 等待人数
 int waiting = 0;
