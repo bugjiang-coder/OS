@@ -81,6 +81,7 @@ int main()
     pthread_create(&p_barber, 0, barber, 0);
     for (int i = 0; i < num_customers; i++)
     {
+        // 把i传入可能有bug！！ i的值是变化的
         pthread_create(&p_customers[i], 0, customer, &i);
         sleep(1);
         if (i == 8)
