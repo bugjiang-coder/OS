@@ -22,6 +22,7 @@ typedef struct element
 {
 
     semaphore mutex;    //用于确保该纪录片的viewer_count更新时的互斥
+    semaphore rw_mutex; //用于确保该读写时的互斥
     int viewer_count;   //正在观看的人数 初始化为0
     Target Documentary; //要观看的纪录片
 } Element;
@@ -37,11 +38,9 @@ Element buffer[ELEMENTS];
 int bufferHead = 0;
 int bufferTail = 0;
 
-semaphore rw_mutex; //用于确保该读写时的互斥
-
 Element *current_Documentary; //维护的正在播放的纪录片
 
-User users[5]; //不同需求的观众
+User users[50]; //不同需求的观众
 
 void *liveRoom(void)
 {
@@ -55,9 +54,14 @@ void *liveRoom(void)
 
         sem_post(&buffer_mutex);
 
-        sem_post(&rw_mutex); //开始播放纪录片
         printf("#######纪录片%d开始播放\n", current_Documentary->Documentary.documentaryID);
-        sem_wait(&rw_mutex); //等待所有观众离开
+        sem_post(&(current_Documentary->rw_mutex)); //完成所有的写 开始播放纪录片
+
+        sem_wait(&(current_Documentary->rw_mutex)); //等待所有观众离开 开始下一轮写
+
+        printf("#######纪录片%d结束\n", current_Documentary->Documentary.documentaryID);
+        // 要清空 current_Documentary
+        current_Documentary = 0;
 
         // 这里可以增加对电影的计时,和对顾客的踢出
     }
@@ -83,14 +87,14 @@ void *viewer(void *user)
         // 一个观众进入直播间后发现正在播放的不是自己要看的电影，于是进入buffer进行排队
         // 首先看buffer中有没有相同的等候观众
         int i = 0;
-        for (i = bufferHead; i != bufferTail; (bufferHead + 1) % ELEMENTS)
+        for (i = bufferHead; i != bufferTail; i = (i + 1) % ELEMENTS)
         { // 已近有等候的观众了
             if (buffer[i].Documentary.documentaryID == ((User *)user)->Documentary.documentaryID)
             {
                 sem_wait(&(buffer[i].mutex));
                 buffer[i].viewer_count += 1;
                 printf("+++用户%d开始观看纪录片%d\n", ((User *)user)->ID, buffer[i].Documentary.documentaryID);
-                printUserInfo(user);
+                // printUserInfo(user);
                 sem_post(&(buffer[i].mutex));
                 isWaiting = 1;
             }
@@ -108,6 +112,8 @@ void *viewer(void *user)
             buffer[bufferTail].viewer_count = 1;
             //更新尾巴指针，指向下一个空位 到这里buffer已经更新完成
             int index = bufferTail;
+            // 初始化读写互斥量
+            sem_init(&(buffer[index].rw_mutex), 0, 0);
             bufferTail = (bufferTail + 1) % ELEMENTS;
 
             sem_post(&buffer_mutex);
@@ -115,7 +121,9 @@ void *viewer(void *user)
             sem_post(&full);
 
             // 等待作者 ：直播间开始播放对应的纪录片
-            sem_wait(&(rw_mutex));
+            // 初始化读写互斥量
+
+            sem_wait(&(buffer[index].rw_mutex));
             // 释放读者数量的读写
             sem_post(&(buffer[index].mutex));
             printf("+++用户%d开始观看纪录片%d\n", ((User *)user)->ID, current_Documentary->Documentary.documentaryID);
@@ -131,10 +139,7 @@ void *viewer(void *user)
     current_Documentary->viewer_count -= 1;
     if (current_Documentary->viewer_count == 0)
     {
-        sem_post(&(rw_mutex));
-        // 最后一个要清空 current_Documentary        
-        printf("##########纪录片%d结束\n", current_Documentary->Documentary.documentaryID);
-        current_Documentary = 0;
+        sem_post(&(current_Documentary->rw_mutex));
     }
 
     sem_post(&(current_Documentary->mutex));
@@ -143,10 +148,18 @@ void *viewer(void *user)
 void initUsers()
 {
     int i = 0;
-    for (i = 0; i < 5; ++i)
+    for (i = 0; i < 20; ++i)
     {
         users[i].ID = i;
-        users[i].Documentary.documentaryID = 1;
+        users[i].Documentary.documentaryID = 0;
+        users[i].viewing_time = 0; //暂时没有用
+    }
+    users[1].Documentary.documentaryID = 2;
+    users[3].Documentary.documentaryID = 1;
+    for (i = 20; i < 50; ++i)
+    {
+        users[i].ID = i;
+        users[i].Documentary.documentaryID = (i % 3);
         users[i].viewing_time = 0; //暂时没有用
     }
 }
@@ -173,13 +186,11 @@ int main()
 {
 
     pthread_t p_liveRoom;
-    pthread_t p_viewer[5];
+    pthread_t p_viewer[50];
 
-    int num_viewers = 5;
+    int num_viewers = 50;
     initUsers();
 
-    // 初始化读写互斥量
-    sem_init(&(rw_mutex), 0, 0);
     // 初始化生产者消费者信号量
     sem_init(&full, 0, 0);
 
@@ -188,7 +199,7 @@ int main()
     for (i = 0; i < num_viewers; i++)
     {
         pthread_create(&p_viewer[i], 0, viewer, &users[i]);
-        sleep(1);
+        // sleep(1);
     }
     for (i = 0; i < num_viewers; i++)
     {

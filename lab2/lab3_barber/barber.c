@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <time.h>
 
-#define CHAIRS 5
+#define CHAIRS 50
 
 typedef sem_t semaphore;
 
@@ -30,8 +30,7 @@ void *barber(void)
         nextCustomers = (nextCustomers + 1) % CHAIRS;
         pthread_mutex_unlock(&mutex);
 
-        printf("barber正在给第%d为顾客理发\n", id);
-        sleep(2);
+        printf("barber正在给第%d位顾客理发\n", id);
 
         //送走客人
         pthread_mutex_lock(&waiting_mutex);
@@ -59,14 +58,14 @@ void *customer(void *num)
         chairs[nextChair] = id;
         nextChair = (nextChair + 1) % CHAIRS;
         pthread_mutex_unlock(&mutex);
+        pthread_mutex_unlock(&waiting_mutex);
+        sem_post(&full);
     }
     else
     {
         printf("-----第%d位顾客没有位置离开了\n", id);
+        pthread_mutex_unlock(&waiting_mutex);
     }
-
-    pthread_mutex_unlock(&waiting_mutex);
-    sem_post(&full);
 }
 
 int main()
@@ -79,15 +78,14 @@ int main()
     sem_init(&full, 0, 0);
 
     pthread_create(&p_barber, 0, barber, 0);
+    // 用于传入用户ID
+    int nums[num_customers];
     for (int i = 0; i < num_customers; i++)
     {
-        // 把i传入可能有bug！！ i的值是变化的
-        pthread_create(&p_customers[i], 0, customer, &i);
-        sleep(1);
-        if (i == 8)
-        {
-            sleep(10);
-        }
+        nums[i] = i;
+        pthread_create(&p_customers[i], 0, customer, &nums[i]);
+        if (i == 10)
+            sleep(1);
     }
     for (int i = 0; i < num_customers; i++)
     {
