@@ -97,7 +97,6 @@ void *viewer(void *user)
         // 如果没有进到某个纪录片下等待，他是第一个想看该纪录片的观众是keyViewer
         if (!isWaiting)
         {
-            index = bufferTail;
             //首先作为生产者写buffer
             sem_wait(&buffer_mutex); //从缓存区读取下一部纪录片
             // 作为生产者将需求写入buffer中
@@ -109,7 +108,8 @@ void *viewer(void *user)
 
             buffer[bufferTail].viewer_count = 1;
             //更新尾巴指针，指向下一个空位。到这里buffer已经更新完成
-
+            // 这个index的位置不能变，不让会有bug
+            index = bufferTail;
             bufferTail = (bufferTail + 1) % ELEMENTS;
 
             sem_post(&buffer_mutex);
