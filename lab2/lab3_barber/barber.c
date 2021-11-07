@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <time.h>
 
-#define CHAIRS 50
+#define CHAIRS 5
 
 typedef sem_t semaphore;
 
@@ -84,7 +84,7 @@ int main()
     {
         nums[i] = i;
         pthread_create(&p_customers[i], 0, customer, &nums[i]);
-        if (i == 10)
+        if (i == 6)
             sleep(1);
     }
     for (int i = 0; i < num_customers; i++)

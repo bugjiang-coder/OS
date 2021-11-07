@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <time.h>
 
-#define ELEMENTS 3 // 将缓冲区的大小定义为3 也是纪录片数量为3
+#define ELEMENTS 3 // 将缓冲区的大小定义为3
 
 typedef sem_t semaphore;
 
@@ -62,6 +62,7 @@ void *liveRoom(void)
         printf("#######纪录片%d结束\n", showing->doc.DID);
         // 要清空 showing
         showing = 0;
+        // 这里可以增加对电影的计时,和对顾客的踢出
     }
 }
 
@@ -82,7 +83,6 @@ void *viewer(void *user)
         // 一个观众进入直播间后发现正在播放的不是自己要看的电影，于是进入buffer进行排队
         // 首先看buffer中有没有相同的等候观众
         int i = 0;
-        int index;
         for (i = bufferHead; i != bufferTail; i = (i + 1) % ELEMENTS)
         { // 已近有等候的观众了
             if (buffer[i].doc.DID == ((User *)user)->doc.DID)
@@ -97,19 +97,18 @@ void *viewer(void *user)
         // 如果没有进到某个纪录片下等待，他是第一个想看该纪录片的观众是keyViewer
         if (!isWaiting)
         {
-            index = bufferTail;
-            //首先作为生产者写buffer
+            //首先作为 生产者 写buffer
             sem_wait(&buffer_mutex); //从缓存区读取下一部纪录片
-            // 作为生产者将需求写入buffer中
+            // 作为生产者 和 读者 将需求写入buffer中
             buffer[bufferTail].doc.DID = (*(User *)user).doc.DID;
             // 现在要对buffer中element初始化 作为第一个读者 开始观看
             sem_init(&(buffer[bufferTail].mutex), 0, 0);
-            // 初始化读写互斥量
-            sem_init(&(buffer[bufferTail].rw_mutex), 0, 0);
 
             buffer[bufferTail].viewer_count = 1;
-            //更新尾巴指针，指向下一个空位。到这里buffer已经更新完成
-
+            //更新尾巴指针，指向下一个空位 到这里buffer已经更新完成
+            int index = bufferTail;
+            // 初始化读写互斥量
+            sem_init(&(buffer[index].rw_mutex), 0, 0);
             bufferTail = (bufferTail + 1) % ELEMENTS;
 
             sem_post(&buffer_mutex);
@@ -117,12 +116,15 @@ void *viewer(void *user)
             sem_post(&full);
 
             // 等待作者 ：直播间开始播放对应的纪录片
+            // 初始化读写互斥量
+
             sem_wait(&(buffer[index].rw_mutex));
             // 释放读者数量的读写
             sem_post(&(buffer[index].mutex));
             printf("+++用户%d开始观看纪录片%d\n", ((User *)user)->UID, showing->doc.DID);
         }
     }
+    // 这里是用户根据信息的观看纪录片的等待
 
     printf("---用户%d看完了，要离开直播间\n", ((User *)user)->UID);
     //读者退出部分  这里没有考虑用户被踢出的情况
@@ -157,6 +159,24 @@ void initUsers()
     }
 }
 
+void printUserInfo(void *user)
+{
+    printf("--------------------\n");
+    printf("user:\n");
+    printf("用户ID：\t%d\n", ((User *)user)->UID);
+    printf("viewing_time：\t%d\n", ((User *)user)->uTime);
+    printDocuInfo(&(((User *)user)->doc));
+    printf("--------------------\n");
+}
+
+void printDocuInfo(void *docu)
+{
+    printf("documentary info:\n");
+    printf("纪录片：\t%s\n", ((Doc *)docu)->name);
+    printf("纪录片ID：\t%d\n", ((Doc *)docu)->DID);
+    printf("纪录片时长：\t%d\n", ((Doc *)docu)->dTime);
+}
+
 int main()
 {
 
@@ -174,8 +194,7 @@ int main()
     for (i = 0; i < num_viewers; i++)
     {
         pthread_create(&p_viewer[i], 0, viewer, &users[i]);
-        if(i == 25)
-            sleep(1);
+        // sleep(1);
     }
     for (i = 0; i < num_viewers; i++)
     {
