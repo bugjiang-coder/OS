@@ -85,28 +85,15 @@ void sched_yield(void)
 	{
 		j = (start + i) % NENV;
 		if (envs[j].env_status == ENV_RUNNABLE)
-		{
-			// 这里的逻辑其实有一个bug  如果仅有一个优先级比较低的会被执行，而不是还是运行之前退出的
-			// 应该改if (nextENV != NENV) 改了下面的if语句
-			// 这里是挑所有可运行的env中优先级最高的
+		{ //越界bug
 			if (nextENV == NENV || (envs[j].priority > envs[nextENV].priority))
 			{
 				nextENV = j;
 			}
 		}
 	}
-	// 添加修改如果优先级比 下一个高
-	if (curenv)
+	if (nextENV != NENV)
 	{
-		if (nextENV != NENV && envs[nextENV].priority >= curenv->priority)
-		{
-			// cprintf("nextENV:%d\tcurenv")
-			env_run(&envs[nextENV]);
-		}
-	}
-	else if (nextENV != NENV) //&& envs[nextENV].priority >= curenv->priority)
-	{
-		// cprintf("nextENV:%d\tcurenv")
 		env_run(&envs[nextENV]);
 	}
 	if (curenv && curenv->env_status == ENV_RUNNING)
